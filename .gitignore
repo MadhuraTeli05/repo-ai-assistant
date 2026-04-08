@@ -1,0 +1,17 @@
+# Virtual environments
+venv/
+**/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Chroma DB (vector database)
+chroma_db/
+**/chroma_db/
+
+# Python env files
+pyvenv.cfg
+
+# Optional future
+.env
