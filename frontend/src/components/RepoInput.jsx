@@ -31,7 +31,7 @@ export default function RepoInput({ onDatabaseReady, onError }) {
   return (
     <div className="repo-input">
       <div className="card">
-        <h2>📦 Load Repository</h2>
+        <h2>Load Repository</h2>
         <p className="card-subtitle">Enter a GitHub repository to process</p>
         
         <form onSubmit={handleSubmit} className="form">
@@ -85,7 +85,7 @@ export default function RepoInput({ onDatabaseReady, onError }) {
                   Processing...
                 </>
               ) : (
-                '🚀 Process Repository'
+                'Process Repository'
               )}
             </button>
           </div>
@@ -93,7 +93,7 @@ export default function RepoInput({ onDatabaseReady, onError }) {
 
         {isLoading && (
           <div className="processing-info">
-            <p>⏳ This may take several minutes depending on repository size...</p>
+            <p>This may take several minutes depending on repository size...</p>
           </div>
         )}
       </div>

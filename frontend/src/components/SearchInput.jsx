@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { searchCode } from '../services/api';
 import './SearchInput.css';
 
-export default function SearchInput({ disabled, onResults, onError }) {
+export default function SearchInput({ disabled, onResults, onError, chatHistory = [] }) {
   const [query, setQuery] = useState('');
   const [nResults, setNResults] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,10 +18,14 @@ export default function SearchInput({ disabled, onResults, onError }) {
     setIsLoading(true);
 
     try {
-      const results = await searchCode(query.trim(), nResults);
+      const trimmedQuery = query.trim();
+      const results = await searchCode(trimmedQuery, nResults, chatHistory);
+
       if (onResults) {
-        onResults(results);
+        onResults(results, trimmedQuery);
       }
+
+      setQuery('');
     } catch (error) {
       onError(error.message);
     } finally {
@@ -32,9 +36,9 @@ export default function SearchInput({ disabled, onResults, onError }) {
   return (
     <div className="search-input">
       <div className="card">
-        <h2>🔎 Search Code</h2>
+        <h2>Search Code</h2>
         <p className="card-subtitle">Find relevant code using natural language</p>
-        
+
         <form onSubmit={handleSearch} className="form">
           <div className="form-group">
             <label htmlFor="query">Query</label>
@@ -77,7 +81,7 @@ export default function SearchInput({ disabled, onResults, onError }) {
                 Searching...
               </>
             ) : (
-              '🔍 Search'
+              'Run Search'
             )}
           </button>
         </form>

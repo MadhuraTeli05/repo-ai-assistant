@@ -8,12 +8,13 @@ import './App.css';
 function App() {
   const [databaseReady, setDatabaseReady] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);   // 🔥 NEW
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [isAPIHealthy, setIsAPIHealthy] = useState(false);
   const [isCheckingAPI, setIsCheckingAPI] = useState(true);
 
-  // Check API health on mount
+  // Check API health
   useEffect(() => {
     const checkAPI = async () => {
       try {
@@ -26,31 +27,40 @@ function App() {
         setIsCheckingAPI(false);
       }
     };
-    
     checkAPI();
   }, []);
 
+  // When repo loaded → reset chat
   const handleDatabaseReady = () => {
     setDatabaseReady(true);
+    setSearchResults(null);
+    setChatHistory([]);   // 🔥 RESET chat
     setError(null);
     setSuccess('✅ Database ready! You can now search.');
     setTimeout(() => setSuccess(null), 4000);
   };
 
-  const handleSearchResults = (results) => {
+  // 🔥 Updated search handler (adds memory)
+  const handleSearchResults = (results, query) => {
     setSearchResults(results);
     setError(null);
+
+    setChatHistory(prev => [
+      ...prev.slice(-4),  // keep last 5 chats
+      { question: query, answer: results.answer }
+    ]);
   };
 
   const handleError = (errorMessage) => {
-    // Extract meaningful error message
     let displayError = errorMessage;
     if (errorMessage.includes('unreachable')) {
       displayError = 'Cannot connect to backend at http://localhost:8000';
     } else if (errorMessage.includes('timeout')) {
       displayError = 'Backend request timed out. Processing may be in progress.';
     } else if (errorMessage.includes('500:')) {
-      displayError = 'Backend error: ' + errorMessage.split('500:')[1]?.trim() || 'Internal server error';
+      displayError =
+        'Backend error: ' +
+        (errorMessage.split('500:')[1]?.trim() || 'Internal server error');
     }
     setError(displayError);
     setSuccess(null);
@@ -62,9 +72,13 @@ function App() {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>🔍 RAG Code Search</h1>
-            <p className="subtitle">Semantic search for GitHub repositories</p>
+            <p className="eyebrow">AI-Powered Repository Intelligence</p>
+            <h1>RAG Code Search</h1>
+            <p className="subtitle">
+              Semantic search across GitHub codebases with retrieval-augmented answers
+            </p>
           </div>
+
           <div className="header-status">
             <div className={`api-status ${isAPIHealthy ? 'healthy' : 'unhealthy'}`}>
               <span className="status-indicator"></span>
@@ -74,9 +88,8 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main */}
       <main className="app-main">
-        {/* API Health Warning */}
         {!isCheckingAPI && !isAPIHealthy && (
           <div className="container">
             <div className="alert alert-error">
@@ -84,14 +97,16 @@ function App() {
               <div className="alert-content">
                 <strong>Backend API Not Connected</strong>
                 <p>Make sure the backend is running on http://localhost:8000</p>
-                <p className="alert-small">Command: <code>uvicorn api:app --reload</code> in backend folder</p>
+                <p className="alert-small">
+                  Command: <code>uvicorn api:app --reload</code>
+                </p>
               </div>
             </div>
           </div>
         )}
 
         <div className="container">
-          {/* Error Alert */}
+          {/* Error */}
           {error && (
             <div className="alert alert-error">
               <span className="alert-icon">❌</span>
@@ -103,51 +118,65 @@ function App() {
             </div>
           )}
 
-          {/* Success Alert */}
+          {/* Success */}
           {success && (
             <div className="alert alert-success">
-              <span className="alert-icon">✅</span>
+              <span className="alert-icon">✓</span>
               <div className="alert-content">{success}</div>
               <button className="alert-close" onClick={() => setSuccess(null)}>✕</button>
             </div>
           )}
 
-          {/* Layout */}
           <div className="layout">
-            {/* Left Column - Input */}
+            {/* LEFT SIDE */}
             <div className="column left-column">
-              <RepoInput 
+              <RepoInput
                 onDatabaseReady={handleDatabaseReady}
                 onError={handleError}
               />
-              
-              <SearchInput 
+
+              <SearchInput
                 disabled={!databaseReady}
                 onResults={handleSearchResults}
                 onError={handleError}
+                chatHistory={chatHistory}   // 🔥 PASS HISTORY
               />
             </div>
 
-            {/* Right Column - Results */}
+            {/* RIGHT SIDE */}
             <div className="column right-column">
               {databaseReady ? (
                 searchResults ? (
-                  <ResultsDisplay results={searchResults} />
+                  <>
+                    {/* 🔥 Chat history display */}
+                    <div className="card">
+                      <h3>💬 Conversation</h3>
+                      {chatHistory.map((msg, idx) => (
+                        <div key={idx} style={{ marginBottom: '12px' }}>
+                          <p><b>You:</b> {msg.question}</p>
+                          <p><b>AI:</b> {msg.answer}</p>
+                          <hr />
+                        </div>
+                      ))}
+                    </div>
+
+                    <ResultsDisplay results={searchResults} />
+                  </>
                 ) : (
                   <div className="card empty-state">
                     <div className="empty-content">
-                      <div className="empty-icon">🔍</div>
+                      <div className="empty-icon">⌁</div>
                       <h3>Search for Code</h3>
-                      <p>Use the search box to find relevant code</p>
+                      <p>Run a natural-language query to surface relevant snippets</p>
                     </div>
                   </div>
                 )
               ) : (
                 <div className="card placeholder">
                   <div className="placeholder-content">
-                    <div className="placeholder-icon">📦</div>
+                    <div className="placeholder-icon">◈</div>
                     <h3>Load a Repository First</h3>
-                    <p>Process a GitHub repository to start searching</p>
+                    <p>Build the vector index from a GitHub repository to begin search</p>
                   </div>
                 </div>
               )}
@@ -159,7 +188,7 @@ function App() {
       {/* Footer */}
       <footer className="app-footer">
         <div className="container">
-          <p>RAG Code Search • Powered by ChromaDB, Embeddings & FastAPI</p>
+          <p>RAG Code Search • Powered by ChromaDB, Embeddings, and FastAPI</p>
         </div>
       </footer>
     </div>

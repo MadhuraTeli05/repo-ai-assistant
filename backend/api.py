@@ -46,23 +46,25 @@ class SearchQuery(BaseModel):
     """Request model for search endpoint."""
     query: str
     n_results: int = 5
+    chat_history: list = []
 
 
 class CodeMatch(BaseModel):
     """Code chunk match from search results."""
     rank: int
     name: str
-    type: str  # "function" or "class"
+    type: str
     file: str
     similarity: Optional[float] = None
     code: str
 
 
 class SearchResponse(BaseModel):
-    """Response model for search endpoint."""
+    """Response model for search results."""
     query: str
     total_matches: int
     matches: List[CodeMatch]
+    answer: str
 
 
 class BuildDatabaseRequest(BaseModel):
@@ -125,58 +127,37 @@ def health_check():
 @app.post("/search", response_model=SearchResponse, tags=["Search"])
 def search(request: SearchQuery):
     """
-    Search for relevant code chunks using semantic similarity.
-    
-    **Parameters:**
-    - `query` (str): Natural language question about code
-    - `n_results` (int): Number of results to return (default: 5)
-    
-    **Returns:**
-    - List of matching code chunks with relevance scores
-    
-    **Example:**
-    ```json
-    {
-      "query": "How to handle errors?",
-      "total_matches": 2,
-      "matches": [
-        {
-          "rank": 1,
-          "name": "error_handler",
-          "type": "function",
-          "file": "utils.py",
-          "similarity": 0.95,
-          "code": "def error_handler(...)..."
-        }
-      ]
-    }
-    ```
+    Search for relevant code chunks using semantic similarity and generate an answer.
     """
     try:
         if not request.query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
-        
+
         pipeline = get_pipeline()
-        results = pipeline.search(request.query, n_results=request.n_results)
-        
-        # Format matches
+        results = pipeline.search(
+            request.query,
+            n_results=request.n_results,
+            chat_history=request.chat_history
+        )
+
         formatted_matches = []
-        for match in results.get('matches', []):
+        for match in results.get("matches", []):
             formatted_matches.append(CodeMatch(
-                rank=match['rank'],
-                name=match['name'],
-                type=match['type'],
-                file=match['file'],
-                similarity=match.get('similarity'),
-                code=format_code_preview(match['code'])
+                rank=match["rank"],
+                name=match["name"],
+                type=match["type"],
+                file=match["file"],
+                similarity=match.get("similarity"),
+                code=format_code_preview(match["code"])
             ))
-        
+
         return SearchResponse(
             query=request.query,
             total_matches=len(formatted_matches),
-            matches=formatted_matches
+            matches=formatted_matches,
+            answer=results.get("answer", "")
         )
-    
+
     except Exception as e:
         logger.error(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -189,14 +170,8 @@ def search_get(
 ):
     """
     Simple search endpoint (GET method).
-    
-    **URL Parameters:**
-    - `q`: Query string (required)
-    - `n_results`: Number of results (default: 5, max: 50)
-    
-    **Example:** `/search?q=error+handling&n_results=3`
     """
-    request = SearchQuery(query=q, n_results=n_results)
+    request = SearchQuery(query=q, n_results=n_results, chat_history=[])
     return search(request)
 
 
@@ -208,39 +183,23 @@ def search_get(
 def build_database(request: BuildDatabaseRequest):
     """
     Build/rebuild embeddings database from GitHub repository.
-    
-    **Parameters:**
-    - `owner` (str): GitHub repository owner (default: "fastapi")
-    - `repo` (str): GitHub repository name (default: "fastapi")
-    - `force_rebuild` (bool): Clear existing data and rebuild (default: false)
-    
-    **Warning:** This operation takes several minutes for large repos!
-    
-    **Example:**
-    ```json
-    {
-      "owner": "python",
-      "repo": "cpython",
-      "force_rebuild": false
-    }
-    ```
     """
     try:
         pipeline = get_pipeline()
-        
+
         if request.force_rebuild:
             from vector_store import delete_collection
-            logger.warning(f"Force rebuild: clearing database...")
+            logger.warning("Force rebuild: clearing database...")
             delete_collection()
-        
+
         logger.info(f"Building database for {request.owner}/{request.repo}...")
         success = pipeline.build_database(request.owner, request.repo)
-        
+
         if success:
             stats = pipeline.get_stats()
             return BuildStatus(
                 success=True,
-                message=f"✅ Database built successfully",
+                message="✅ Database built successfully",
                 stats=stats
             )
         else:
@@ -248,7 +207,7 @@ def build_database(request: BuildDatabaseRequest):
                 success=False,
                 message="Failed to build database"
             )
-    
+
     except Exception as e:
         logger.error(f"Build error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -258,29 +217,15 @@ def build_database(request: BuildDatabaseRequest):
 def get_statistics():
     """
     Get database statistics.
-    
-    **Returns:**
-    - `total_chunks`: Number of code chunks in database
-    - `unique_files`: Number of different files indexed
-    - `files`: List of indexed files
-    
-    **Example:**
-    ```json
-    {
-      "total_chunks": 1250,
-      "unique_files": 85,
-      "files": ["main.py", "utils.py", ...]
-    }
-    ```
     """
     try:
         stats = get_db_stats()
         return DatabaseStats(
-            total_chunks=stats['total_chunks'],
-            unique_files=stats['unique_files'],
-            files=stats['files']
+            total_chunks=stats["total_chunks"],
+            unique_files=stats["unique_files"],
+            files=stats["files"]
         )
-    
+
     except Exception as e:
         logger.error(f"Stats error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -323,7 +268,7 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "api:app",
         host=API_HOST,
