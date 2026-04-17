@@ -8,7 +8,7 @@ export default function ResultsDisplay({ results }) {
     return (
       <div className="card empty-results">
         <div className="empty-content">
-          <div className="empty-icon">📭</div>
+          <div className="empty-icon">○</div>
           <h3>No results found</h3>
           <p>Try a different search query</p>
         </div>
@@ -23,10 +23,10 @@ export default function ResultsDisplay({ results }) {
   };
 
   const getSimilarityColor = (similarity) => {
-    if (similarity >= 0.85) return '#10b981'; // Green
-    if (similarity >= 0.7) return '#3b82f6';  // Blue
-    if (similarity >= 0.5) return '#f59e0b'; // Amber
-    return '#ef4444'; // Red
+    if (similarity >= 0.85) return '#10b981';
+    if (similarity >= 0.7) return '#3b82f6';
+    if (similarity >= 0.5) return '#f59e0b';
+    return '#ef4444';
   };
 
   const formatCode = (code, maxLines = 20) => {
@@ -40,11 +40,27 @@ export default function ResultsDisplay({ results }) {
   return (
     <div className="results-display">
       <div className="results-header">
-        <h2>📋 Results</h2>
+        <h2>Results</h2>
         <p className="results-info">
           Found <strong>{results.total_matches}</strong> match{results.total_matches !== 1 ? 'es' : ''}
         </p>
       </div>
+
+
+      {results?.answer && (
+        <div className="result-card ai-answer-card">
+          <div className="result-header">
+            <div className="result-info">
+              <h3 className="result-name">AI Answer</h3>
+            </div>
+          </div>
+          <div className="code-wrapper">
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+              {results.answer}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="results-list">
         {results.matches.map((match, idx) => (
@@ -57,7 +73,7 @@ export default function ResultsDisplay({ results }) {
                   <div className="result-meta">
                     <span className="badge badge-type">{match.type || 'code'}</span>
                     {match.file && (
-                      <span className="result-file">📄 {match.file}</span>
+                      <span className="result-file">{match.file}</span>
                     )}
                   </div>
                 </div>
@@ -86,7 +102,7 @@ export default function ResultsDisplay({ results }) {
                 onClick={() => handleCopyCode(match.code, match.id)}
                 title="Copy code"
               >
-                {copiedId === match.id ? '✅ Copied!' : '📋 Copy'}
+                {copiedId === match.id ? 'Copied' : 'Copy'}
               </button>
             </div>
           </div>
